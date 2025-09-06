@@ -162,6 +162,7 @@
         </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.0.4/pako.min.js"></script>
     <script src="utils.js"></script>
     <script>
         // Global variables
@@ -441,9 +442,8 @@
         }
 
         function generateShareUrl(data) {
-            // For now, we'll use a simple base64 encoding
-            // In a real app, you'd upload to a server and get a short URL
-            const encoded = btoa(JSON.stringify(data));
+            const compressed = pako.deflate(JSON.stringify(data), { to: 'string' });
+            const encoded = btoa(compressed);
             return `${window.location.origin}${window.location.pathname}?import=${encoded}`;
         }
 
@@ -668,7 +668,9 @@
             
             if (importData) {
                 try {
-                    const data = JSON.parse(atob(importData));
+                    const decoded = atob(importData);
+                    const decompressed = pako.inflate(decoded, { to: 'string' });
+                    const data = JSON.parse(decompressed);
                     console.log('Parsed import data:', data);
                     showImportModal(data);
                 } catch (e) {
