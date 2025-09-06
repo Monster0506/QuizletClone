@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory Mode - Quizlet Clone</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#e0e7ff',
+                            100: '#c7d2fe',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                        },
+                        secondary: {
+                            50: '#f3e8ff',
+                            500: '#8b5cf6',
+                            600: '#7c3aed',
+                        }
+                    },
+                    fontFamily: {
+                        'sans': ['Inter', 'system-ui', 'sans-serif'],
+                        'mono': ['JetBrains Mono', 'monospace'],
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-out',
+                        'slide-up': 'slideUp 0.3s ease-out',
+                        'bounce-gentle': 'bounceGentle 2s infinite',
+                        'flip': 'flip 0.6s ease-in-out',
+                        'shake': 'shake 0.5s ease-in-out',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        slideUp: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        bounceGentle: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-5px)' },
+                        },
+                        flip: {
+                            '0%': { transform: 'rotateY(0)' },
+                            '50%': { transform: 'rotateY(90deg)' },
+                            '100%': { transform: 'rotateY(0)' },
+                        },
+                        shake: {
+                            '0%, 100%': { transform: 'translateX(0)' },
+                            '25%': { transform: 'translateX(-5px)' },
+                            '75%': { transform: 'translateX(5px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body class="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 font-sans">
+    <!-- Background Pattern -->
+    <div class="fixed inset-0 bg-[url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23ffffff" fill-opacity="0.05"%3E%3Ccircle cx="30" cy="30" r="2"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-20"></div>
+    
+    <div class="relative z-10 min-h-screen">
+        <!-- Header -->
+        <div class="text-center py-12 px-4">
+            <div class="animate-fade-in">
+                <h1 class="text-5xl md:text-6xl font-extrabold text-white mb-4 tracking-tight">
+                    🧠 Memory Mode
+                </h1>
+                <p class="text-xl text-white/90 font-medium">
+                    Test your memory with the classic memory game
+                </p>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="max-w-6xl mx-auto px-4 pb-16">
+            <div class="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
+                <!-- Header Section -->
+                <div class="bg-gradient-to-r from-primary-500 to-secondary-500 px-8 py-6">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div>
+                            <h2 class="text-2xl font-bold text-white" id="set-title">Loading...</h2>
+                            <p class="text-white/80 mt-1">Find matching pairs</p>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <div class="text-white/90 text-sm font-medium" id="memory-moves">Moves: 0</div>
+                            <div class="text-white/90 text-sm font-medium" id="memory-pairs">Pairs: 0</div>
+                            <a href="index.html" class="inline-flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-xl font-medium transition-all duration-200 backdrop-blur-sm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                                </svg>
+                                <span>Back to Sets</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Game Content -->
+                <div class="p-8">
+                    <div id="memory-content">
+                        <!-- Game content will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="utils.js"></script>
+    <script>
+        // Global variables
+        let currentSet = null;
+        let memoryCards = [];
+        let flippedCards = [];
+        let matchedPairs = 0;
+        let moves = 0;
+        let gameStartTime = null;
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSet();
+        });
+
+        function loadSet() {
+            currentSet = QuizletUtils.getCurrentSet();
+            if (!currentSet) {
+                showNotification('No study set found', 'error');
+                setTimeout(() => window.location.href = 'index.html', 2000);
+                return;
+            }
+
+            if (currentSet.flashcards.length < 2) {
+                showNotification('Need at least 2 flashcards to play', 'error');
+                setTimeout(() => window.location.href = 'index.html', 2000);
+                return;
+            }
+
+            document.getElementById('set-title').textContent = currentSet.name;
+            startMemoryGame();
+        }
+
+        function startMemoryGame() {
+            memoryCards = [];
+            flippedCards = [];
+            matchedPairs = 0;
+            moves = 0;
+            gameStartTime = Date.now();
+
+            // Create memory cards (pairs of terms and definitions)
+            currentSet.flashcards.forEach(card => {
+                memoryCards.push({
+                    id: card.id + '_term',
+                    content: card.term,
+                    type: 'term',
+                    pairId: card.id,
+                    flipped: false,
+                    matched: false
+                });
+                memoryCards.push({
+                    id: card.id + '_definition',
+                    content: card.definition,
+                    type: 'definition',
+                    pairId: card.id,
+                    flipped: false,
+                    matched: false
+                });
+            });
+
+            // Shuffle cards
+            memoryCards = QuizletUtils.shuffleArray(memoryCards);
+            
+            renderMemoryGame();
+            updateStats();
+        }
+
+        function renderMemoryGame() {
+            const content = document.getElementById('memory-content');
+            const gridSize = Math.ceil(Math.sqrt(memoryCards.length));
+            
+            content.innerHTML = `
+                <div class="text-center mb-8">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-2">Memory Game</h3>
+                    <p class="text-gray-600">Click cards to flip them and find matching pairs</p>
+                </div>
+                
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-w-4xl mx-auto">
+                    ${memoryCards.map((card, index) => `
+                        <div 
+                            class="memory-card aspect-square bg-gradient-to-br from-primary-500 to-secondary-500 text-white rounded-xl shadow-lg cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-xl flex items-center justify-center text-center p-4 font-medium"
+                            onclick="flipCard(${index})"
+                            data-index="${index}"
+                        >
+                            <div class="text-2xl">🧠</div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function flipCard(index) {
+            const card = memoryCards[index];
+            
+            if (card.flipped || card.matched || flippedCards.length >= 2) {
+                return;
+            }
+
+            card.flipped = true;
+            flippedCards.push(index);
+            
+            // Show card content
+            const cardElement = document.querySelector(`[data-index="${index}"]`);
+            cardElement.innerHTML = `
+                <div class="text-sm font-medium text-center">
+                    ${escapeHtml(card.content)}
+                </div>
+            `;
+            cardElement.classList.add('bg-white', 'text-gray-800', 'border-2', 'border-primary-300');
+            cardElement.classList.add('animate-flip');
+
+            if (flippedCards.length === 2) {
+                moves++;
+                updateStats();
+                setTimeout(checkMatch, 1000);
+            }
+        }
+
+        function checkMatch() {
+            const [index1, index2] = flippedCards;
+            const card1 = memoryCards[index1];
+            const card2 = memoryCards[index2];
+
+            if (card1.pairId === card2.pairId) {
+                // Match found!
+                matchedPairs++;
+                card1.matched = true;
+                card2.matched = true;
+                
+                // Mark cards as matched
+                const cardElement1 = document.querySelector(`[data-index="${index1}"]`);
+                const cardElement2 = document.querySelector(`[data-index="${index2}"]`);
+                
+                cardElement1.classList.add('bg-green-100', 'border-green-500', 'text-green-800');
+                cardElement2.classList.add('bg-green-100', 'border-green-500', 'text-green-800');
+                
+                showNotification('Great match!', 'success');
+                
+                if (matchedPairs === currentSet.flashcards.length) {
+                    setTimeout(showMemoryComplete, 1000);
+                }
+            } else {
+                // No match - flip cards back
+                setTimeout(() => {
+                    card1.flipped = false;
+                    card2.flipped = false;
+                    
+                    const cardElement1 = document.querySelector(`[data-index="${index1}"]`);
+                    const cardElement2 = document.querySelector(`[data-index="${index2}"]`);
+                    
+                    cardElement1.innerHTML = '<div class="text-2xl">🧠</div>';
+                    cardElement2.innerHTML = '<div class="text-2xl">🧠</div>';
+                    
+                    cardElement1.classList.remove('bg-white', 'text-gray-800', 'border-2', 'border-primary-300', 'animate-flip');
+                    cardElement2.classList.remove('bg-white', 'text-gray-800', 'border-2', 'border-primary-300', 'animate-flip');
+                    
+                    // Add shake animation for wrong match
+                    cardElement1.classList.add('animate-shake');
+                    cardElement2.classList.add('animate-shake');
+                    
+                    setTimeout(() => {
+                        cardElement1.classList.remove('animate-shake');
+                        cardElement2.classList.remove('animate-shake');
+                    }, 500);
+                }, 1000);
+            }
+
+            flippedCards = [];
+        }
+
+        function updateStats() {
+            document.getElementById('memory-moves').textContent = `Moves: ${moves}`;
+            document.getElementById('memory-pairs').textContent = `Pairs: ${matchedPairs}`;
+        }
+
+        function showMemoryComplete() {
+            const totalTime = Math.floor((Date.now() - gameStartTime) / 1000);
+            const efficiency = Math.round((matchedPairs / moves) * 100);
+            
+            const content = document.getElementById('memory-content');
+            content.innerHTML = `
+                <div class="text-center py-12 animate-fade-in">
+                    <div class="text-6xl mb-6">🎉</div>
+                    <h3 class="text-3xl font-bold text-gray-800 mb-4">Memory Complete!</h3>
+                    
+                    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 max-w-md mx-auto mb-8">
+                        <div class="grid grid-cols-2 gap-6">
+                            <div class="text-center">
+                                <div class="text-3xl font-bold text-primary-600">${moves}</div>
+                                <div class="text-sm text-gray-600">Total Moves</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-3xl font-bold text-gray-800">${totalTime}s</div>
+                                <div class="text-sm text-gray-600">Time</div>
+                            </div>
+                        </div>
+                        <div class="mt-6 pt-6 border-t border-gray-200">
+                            <div class="text-center">
+                                <div class="text-2xl font-bold text-green-600">${efficiency}%</div>
+                                <div class="text-sm text-gray-600">Efficiency</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-4 justify-center">
+                        <button 
+                            onclick="startMemoryGame()" 
+                            class="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors duration-200"
+                        >
+                            Play Again
+                        </button>
+                        <a 
+                            href="index.html" 
+                            class="px-6 py-3 bg-gradient-to-r from-primary-500 to-secondary-500 text-white rounded-xl font-medium hover:from-primary-600 hover:to-secondary-600 transition-all duration-200 shadow-lg hover:shadow-xl"
+                        >
+                            Back to Sets
+                        </a>
+                    </div>
+                </div>
+            `;
+        }
+
+        function escapeHtml(text) {
+            if (window.QuizletUtils && window.QuizletUtils.escapeHtml) {
+                return window.QuizletUtils.escapeHtml(text);
+            }
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showNotification(message, type = 'info') {
+            if (window.QuizletUtils && window.QuizletUtils.showNotification) {
+                return window.QuizletUtils.showNotification(message, type);
+            }
+            
+            // Create Tailwind notification
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 z-50 max-w-sm w-full bg-white rounded-xl shadow-lg border p-4 animate-slide-up`;
+            
+            const typeStyles = {
+                success: 'border-green-200 bg-green-50',
+                error: 'border-red-200 bg-red-50',
+                warning: 'border-yellow-200 bg-yellow-50',
+                info: 'border-blue-200 bg-blue-50'
+            };
+            
+            const typeIcons = {
+                success: '✅',
+                error: '❌',
+                warning: '⚠️',
+                info: 'ℹ️'
+            };
+            
+            notification.className += ` ${typeStyles[type] || typeStyles.info}`;
+            
+            notification.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <span class="text-xl">${typeIcons[type] || typeIcons.info}</span>
+                    <span class="text-sm font-medium text-gray-800">${message}</span>
+                    <button onclick="this.closest('.fixed').remove()" class="ml-auto text-gray-400 hover:text-gray-600">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Auto remove after 3 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

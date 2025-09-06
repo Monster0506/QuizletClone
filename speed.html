@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speed Mode - Quizlet Clone</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#e0e7ff',
+                            100: '#c7d2fe',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                        },
+                        secondary: {
+                            50: '#f3e8ff',
+                            500: '#8b5cf6',
+                            600: '#7c3aed',
+                        }
+                    },
+                    fontFamily: {
+                        'sans': ['Inter', 'system-ui', 'sans-serif'],
+                        'mono': ['JetBrains Mono', 'monospace'],
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-out',
+                        'slide-up': 'slideUp 0.3s ease-out',
+                        'bounce-gentle': 'bounceGentle 2s infinite',
+                        'pulse-fast': 'pulseFast 0.5s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        slideUp: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        bounceGentle: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-5px)' },
+                        },
+                        pulseFast: {
+                            '0%, 100%': { opacity: '1' },
+                            '50%': { opacity: '0.5' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body class="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 font-sans">
+    <!-- Background Pattern -->
+    <div class="fixed inset-0 bg-[url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23ffffff" fill-opacity="0.05"%3E%3Ccircle cx="30" cy="30" r="2"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-20"></div>
+    
+    <div class="relative z-10 min-h-screen">
+        <!-- Header -->
+        <div class="text-center py-12 px-4">
+            <div class="animate-fade-in">
+                <h1 class="text-5xl md:text-6xl font-extrabold text-white mb-4 tracking-tight">
+                    ⚡ Speed Mode
+                </h1>
+                <p class="text-xl text-white/90 font-medium">
+                    Test your speed and accuracy
+                </p>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="max-w-6xl mx-auto px-4 pb-16">
+            <div class="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
+                <!-- Header Section -->
+                <div class="bg-gradient-to-r from-primary-500 to-secondary-500 px-8 py-6">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div>
+                            <h2 class="text-2xl font-bold text-white" id="set-title">Loading...</h2>
+                            <p class="text-white/80 mt-1">Answer as fast as you can!</p>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <div class="text-white/90 text-sm font-medium" id="speed-timer">Time: 0s</div>
+                            <div class="text-white/90 text-sm font-medium" id="speed-score">Score: 0</div>
+                            <a href="index.html" class="inline-flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-xl font-medium transition-all duration-200 backdrop-blur-sm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                                </svg>
+                                <span>Back to Sets</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Game Content -->
+                <div class="p-8">
+                    <div id="speed-content">
+                        <!-- Game content will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="utils.js"></script>
+    <script>
+        // Global variables
+        let currentSet = null;
+        let speedCards = [];
+        let currentCardIndex = 0;
+        let score = 0;
+        let startTime = null;
+        let gameTimer = null;
+        let gameActive = false;
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSet();
+        });
+
+        function loadSet() {
+            currentSet = QuizletUtils.getCurrentSet();
+            if (!currentSet) {
+                showNotification('No study set found', 'error');
+                setTimeout(() => window.location.href = 'index.html', 2000);
+                return;
+            }
+
+            if (currentSet.flashcards.length < 2) {
+                showNotification('Need at least 2 flashcards to play', 'error');
+                setTimeout(() => window.location.href = 'index.html', 2000);
+                return;
+            }
+
+            document.getElementById('set-title').textContent = currentSet.name;
+            showSpeedGameStart();
+        }
+
+        function showSpeedGameStart() {
+            const content = document.getElementById('speed-content');
+            content.innerHTML = `
+                <div class="text-center py-12 animate-fade-in">
+                    <div class="text-6xl mb-6 animate-bounce-gentle">⚡</div>
+                    <h3 class="text-3xl font-bold text-gray-800 mb-4">Speed Challenge</h3>
+                    <p class="text-gray-600 mb-8 max-w-md mx-auto">Answer as many questions as you can in 60 seconds. Type your answers quickly!</p>
+                    
+                    <div class="bg-gradient-to-r from-primary-50 to-secondary-50 rounded-2xl p-6 max-w-md mx-auto mb-8">
+                        <h4 class="text-lg font-semibold text-gray-800 mb-4">How to Play:</h4>
+                        <ul class="text-left text-sm text-gray-600 space-y-2">
+                            <li>• You'll see a term or definition</li>
+                            <li>• Type the matching answer quickly</li>
+                            <li>• Press Enter or click Submit</li>
+                            <li>• Get points for correct answers</li>
+                            <li>• Speed bonus for quick answers!</li>
+                        </ul>
+                    </div>
+                    
+                    <button 
+                        onclick="startSpeedGame()" 
+                        class="px-8 py-4 bg-gradient-to-r from-primary-500 to-secondary-500 text-white rounded-xl font-semibold hover:from-primary-600 hover:to-secondary-600 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105"
+                    >
+                        Start Speed Challenge
+                    </button>
+                </div>
+            `;
+        }
+
+        function startSpeedGame() {
+            speedCards = [...currentSet.flashcards];
+            speedCards = QuizletUtils.shuffleArray(speedCards);
+            currentCardIndex = 0;
+            score = 0;
+            startTime = Date.now();
+            gameActive = true;
+            
+            startTimer();
+            showQuestion();
+        }
+
+        function showQuestion() {
+            if (currentCardIndex >= speedCards.length || !gameActive) {
+                showSpeedResults();
+                return;
+            }
+
+            const card = speedCards[currentCardIndex];
+            const showTerm = Math.random() < 0.5;
+            
+            const content = document.getElementById('speed-content');
+            content.innerHTML = `
+                <div class="text-center py-8 animate-fade-in">
+                    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 max-w-2xl mx-auto">
+                        <div class="mb-6">
+                            <div class="text-sm font-medium text-gray-500 mb-2">Question ${currentCardIndex + 1} of ${speedCards.length}</div>
+                            <div class="w-full bg-gray-200 rounded-full h-2 mb-4">
+                                <div class="bg-gradient-to-r from-primary-500 to-secondary-500 h-2 rounded-full transition-all duration-300" style="width: ${((currentCardIndex + 1) / speedCards.length) * 100}%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-8">
+                            <h3 class="text-2xl font-bold text-gray-800 mb-4">
+                                ${showTerm ? escapeHtml(card.term) : escapeHtml(card.definition)}
+                            </h3>
+                            <p class="text-gray-600">
+                                ${showTerm ? 'What is the definition?' : 'What is the term?'}
+                            </p>
+                        </div>
+                        
+                        <div class="max-w-md mx-auto">
+                            <input 
+                                type="text" 
+                                id="speed-answer" 
+                                placeholder="Type your answer here..."
+                                class="w-full px-6 py-4 text-lg border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 text-center"
+                                onkeypress="if(event.key==='Enter') submitSpeedAnswer()"
+                                autocomplete="off"
+                            >
+                            <div class="flex justify-center mt-6 gap-4">
+                                <button 
+                                    onclick="submitSpeedAnswer()" 
+                                    class="px-8 py-3 bg-gradient-to-r from-primary-500 to-secondary-500 text-white rounded-xl font-semibold hover:from-primary-600 hover:to-secondary-600 transition-all duration-200 shadow-lg hover:shadow-xl"
+                                >
+                                    Submit
+                                </button>
+                                <button 
+                                    onclick="skipQuestion()" 
+                                    class="px-8 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors duration-200"
+                                >
+                                    Skip
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Focus on input
+            setTimeout(() => {
+                document.getElementById('speed-answer').focus();
+            }, 100);
+        }
+
+        function submitSpeedAnswer() {
+            if (!gameActive) return;
+            
+            const input = document.getElementById('speed-answer');
+            const userAnswer = input.value.trim().toLowerCase();
+            const card = speedCards[currentCardIndex];
+            const correctAnswer = input.placeholder.includes('definition') ? card.definition.toLowerCase() : card.term.toLowerCase();
+            
+            // Check if answer is correct
+            const similarity = calculateSimilarity(userAnswer, correctAnswer);
+            const isCorrect = similarity > 0.7;
+            
+            if (isCorrect) {
+                const timeBonus = Math.max(0, 10 - Math.floor((Date.now() - startTime) / 1000));
+                score += 10 + timeBonus;
+                showNotification(`Correct! +${10 + timeBonus} points`, 'success');
+            } else {
+                showNotification(`Incorrect. Answer: ${correctAnswer}`, 'error');
+            }
+            
+            // Move to next question
+            currentCardIndex++;
+            updateScore();
+            
+            if (currentCardIndex < speedCards.length) {
+                setTimeout(showQuestion, 1000);
+            } else {
+                showSpeedResults();
+            }
+        }
+
+        function skipQuestion() {
+            if (!gameActive) return;
+            
+            currentCardIndex++;
+            updateScore();
+            
+            if (currentCardIndex < speedCards.length) {
+                showQuestion();
+            } else {
+                showSpeedResults();
+            }
+        }
+
+        function calculateSimilarity(str1, str2) {
+            const longer = str1.length > str2.length ? str1 : str2;
+            const shorter = str1.length > str2.length ? str2 : str1;
+            
+            if (longer.length === 0) return 1.0;
+            
+            const editDistance = levenshteinDistance(longer, shorter);
+            return (longer.length - editDistance) / longer.length;
+        }
+
+        function levenshteinDistance(str1, str2) {
+            const matrix = [];
+            
+            for (let i = 0; i <= str2.length; i++) {
+                matrix[i] = [i];
+            }
+            
+            for (let j = 0; j <= str1.length; j++) {
+                matrix[0][j] = j;
+            }
+            
+            for (let i = 1; i <= str2.length; i++) {
+                for (let j = 1; j <= str1.length; j++) {
+                    if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+                        matrix[i][j] = matrix[i - 1][j - 1];
+                    } else {
+                        matrix[i][j] = Math.min(
+                            matrix[i - 1][j - 1] + 1,
+                            matrix[i][j - 1] + 1,
+                            matrix[i - 1][j] + 1
+                        );
+                    }
+                }
+            }
+            
+            return matrix[str2.length][str1.length];
+        }
+
+        function startTimer() {
+            gameTimer = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                document.getElementById('speed-timer').textContent = `Time: ${elapsed}s`;
+                
+                // End game after 60 seconds
+                if (elapsed >= 60) {
+                    gameActive = false;
+                    clearInterval(gameTimer);
+                    showSpeedResults();
+                }
+            }, 1000);
+        }
+
+        function updateScore() {
+            document.getElementById('speed-score').textContent = `Score: ${score}`;
+        }
+
+        function showSpeedResults() {
+            gameActive = false;
+            clearInterval(gameTimer);
+            
+            const totalTime = Math.floor((Date.now() - startTime) / 1000);
+            const accuracy = Math.round((score / Math.max(1, currentCardIndex)) * 10);
+            const speed = Math.round(score / Math.max(1, totalTime / 60));
+            
+            const content = document.getElementById('speed-content');
+            content.innerHTML = `
+                <div class="text-center py-12 animate-fade-in">
+                    <div class="text-6xl mb-6">${score >= 50 ? '🏆' : score >= 30 ? '⚡' : '📚'}</div>
+                    <h3 class="text-3xl font-bold text-gray-800 mb-4">Speed Challenge Complete!</h3>
+                    
+                    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 max-w-md mx-auto mb-8">
+                        <div class="grid grid-cols-2 gap-6">
+                            <div class="text-center">
+                                <div class="text-3xl font-bold text-primary-600">${score}</div>
+                                <div class="text-sm text-gray-600">Final Score</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-3xl font-bold text-gray-800">${totalTime}s</div>
+                                <div class="text-sm text-gray-600">Time</div>
+                            </div>
+                        </div>
+                        <div class="mt-6 pt-6 border-t border-gray-200 grid grid-cols-2 gap-4">
+                            <div class="text-center">
+                                <div class="text-xl font-bold text-green-600">${accuracy}%</div>
+                                <div class="text-sm text-gray-600">Accuracy</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-xl font-bold text-blue-600">${speed}</div>
+                                <div class="text-sm text-gray-600">Speed</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-4 justify-center">
+                        <button 
+                            onclick="showSpeedGameStart()" 
+                            class="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors duration-200"
+                        >
+                            Try Again
+                        </button>
+                        <a 
+                            href="index.html" 
+                            class="px-6 py-3 bg-gradient-to-r from-primary-500 to-secondary-500 text-white rounded-xl font-medium hover:from-primary-600 hover:to-secondary-600 transition-all duration-200 shadow-lg hover:shadow-xl"
+                        >
+                            Back to Sets
+                        </a>
+                    </div>
+                </div>
+            `;
+        }
+
+        function escapeHtml(text) {
+            if (window.QuizletUtils && window.QuizletUtils.escapeHtml) {
+                return window.QuizletUtils.escapeHtml(text);
+            }
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showNotification(message, type = 'info') {
+            if (window.QuizletUtils && window.QuizletUtils.showNotification) {
+                return window.QuizletUtils.showNotification(message, type);
+            }
+            
+            // Create Tailwind notification
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 z-50 max-w-sm w-full bg-white rounded-xl shadow-lg border p-4 animate-slide-up`;
+            
+            const typeStyles = {
+                success: 'border-green-200 bg-green-50',
+                error: 'border-red-200 bg-red-50',
+                warning: 'border-yellow-200 bg-yellow-50',
+                info: 'border-blue-200 bg-blue-50'
+            };
+            
+            const typeIcons = {
+                success: '✅',
+                error: '❌',
+                warning: '⚠️',
+                info: 'ℹ️'
+            };
+            
+            notification.className += ` ${typeStyles[type] || typeStyles.info}`;
+            
+            notification.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <span class="text-xl">${typeIcons[type] || typeIcons.info}</span>
+                    <span class="text-sm font-medium text-gray-800">${message}</span>
+                    <button onclick="this.closest('.fixed').remove()" class="ml-auto text-gray-400 hover:text-gray-600">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Auto remove after 3 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

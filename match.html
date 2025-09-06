@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Match Mode - Quizlet Clone</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#e0e7ff',
+                            100: '#c7d2fe',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                        },
+                        secondary: {
+                            50: '#f3e8ff',
+                            500: '#8b5cf6',
+                            600: '#7c3aed',
+                        }
+                    },
+                    fontFamily: {
+                        'sans': ['Inter', 'system-ui', 'sans-serif'],
+                        'mono': ['JetBrains Mono', 'monospace'],
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-out',
+                        'slide-up': 'slideUp 0.3s ease-out',
+                        'bounce-gentle': 'bounceGentle 2s infinite',
+                        'flip': 'flip 0.6s ease-in-out',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        slideUp: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        bounceGentle: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-5px)' },
+                        },
+                        flip: {
+                            '0%': { transform: 'rotateY(0)' },
+                            '50%': { transform: 'rotateY(90deg)' },
+                            '100%': { transform: 'rotateY(0)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body class="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 font-sans">
+    <!-- Background Pattern -->
+    <div class="fixed inset-0 bg-[url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23ffffff" fill-opacity="0.05"%3E%3Ccircle cx="30" cy="30" r="2"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-20"></div>
+    
+    <div class="relative z-10 min-h-screen">
+        <!-- Header -->
+        <div class="text-center py-12 px-4">
+            <div class="animate-fade-in">
+                <h1 class="text-5xl md:text-6xl font-extrabold text-white mb-4 tracking-tight">
+                    🎯 Match Mode
+                </h1>
+                <p class="text-xl text-white/90 font-medium">
+                    Match terms with their definitions
+                </p>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="max-w-6xl mx-auto px-4 pb-16">
+            <div class="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
+                <!-- Header Section -->
+                <div class="bg-gradient-to-r from-primary-500 to-secondary-500 px-8 py-6">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div>
+                            <h2 class="text-2xl font-bold text-white" id="set-title">Loading...</h2>
+                            <p class="text-white/80 mt-1">Match the pairs correctly</p>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <div class="text-white/90 text-sm font-medium" id="match-score">Score: 0</div>
+                            <div class="text-white/90 text-sm font-medium" id="match-time">Time: 0s</div>
+                            <a href="index.html" class="inline-flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-xl font-medium transition-all duration-200 backdrop-blur-sm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                                </svg>
+                                <span>Back to Sets</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Game Content -->
+                <div class="p-8">
+                    <div id="match-content">
+                        <!-- Game content will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="utils.js"></script>
+    <script>
+        // Global variables
+        let currentSet = null;
+        let gameCards = [];
+        let selectedCards = [];
+        let matchedPairs = 0;
+        let score = 0;
+        let startTime = null;
+        let gameTimer = null;
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSet();
+        });
+
+        function loadSet() {
+            currentSet = QuizletUtils.getCurrentSet();
+            if (!currentSet) {
+                showNotification('No study set found', 'error');
+                setTimeout(() => window.location.href = 'index.html', 2000);
+                return;
+            }
+
+            if (currentSet.flashcards.length < 2) {
+                showNotification('Need at least 2 flashcards to play', 'error');
+                setTimeout(() => window.location.href = 'index.html', 2000);
+                return;
+            }
+
+            document.getElementById('set-title').textContent = currentSet.name;
+            startGame();
+        }
+
+        function startGame() {
+            gameCards = [];
+            selectedCards = [];
+            matchedPairs = 0;
+            score = 0;
+            startTime = Date.now();
+            
+            // Create separate arrays for terms and definitions
+            const terms = currentSet.flashcards.map(card => ({
+                id: card.id,
+                content: card.term,
+                type: 'term',
+                matched: false
+            }));
+            
+            const definitions = currentSet.flashcards.map(card => ({
+                id: card.id,
+                content: card.definition,
+                type: 'definition',
+                matched: false
+            }));
+
+            // Shuffle both arrays
+            gameCards = {
+                terms: QuizletUtils.shuffleArray(terms),
+                definitions: QuizletUtils.shuffleArray(definitions)
+            };
+            
+            renderGame();
+            startTimer();
+        }
+
+        function renderGame() {
+            const content = document.getElementById('match-content');
+            
+            content.innerHTML = `
+                <div class="text-center mb-8">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-2">Match the pairs</h3>
+                    <p class="text-gray-600">Click on a term and then its matching definition</p>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
+                    <!-- Terms Column -->
+                    <div>
+                        <h4 class="text-lg font-semibold text-gray-800 mb-4 text-center">Terms</h4>
+                        <div class="space-y-3">
+                            ${gameCards.terms.map((term, index) => `
+                                <div 
+                                    class="term-card p-4 bg-gradient-to-r from-primary-50 to-primary-100 border-2 border-primary-200 rounded-xl cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-lg ${term.matched ? 'opacity-50 pointer-events-none bg-green-100 border-green-300' : ''}"
+                                    onclick="selectTerm(${index})"
+                                    data-index="${index}"
+                                    data-type="term"
+                                >
+                                    <div class="text-sm font-medium text-primary-800">${escapeHtml(term.content)}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    
+                    <!-- Definitions Column -->
+                    <div>
+                        <h4 class="text-lg font-semibold text-gray-800 mb-4 text-center">Definitions</h4>
+                        <div class="space-y-3">
+                            ${gameCards.definitions.map((def, index) => `
+                                <div 
+                                    class="definition-card p-4 bg-gradient-to-r from-secondary-50 to-secondary-100 border-2 border-secondary-200 rounded-xl cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-lg ${def.matched ? 'opacity-50 pointer-events-none bg-green-100 border-green-300' : ''}"
+                                    onclick="selectDefinition(${index})"
+                                    data-index="${index}"
+                                    data-type="definition"
+                                >
+                                    <div class="text-sm font-medium text-secondary-800">${escapeHtml(def.content)}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function selectTerm(index) {
+            if (selectedCards.length >= 2) return;
+            
+            const term = gameCards.terms[index];
+            if (term.matched) return;
+            
+            selectedCards.push({ type: 'term', index: index, id: term.id });
+            
+            // Highlight selected term
+            const termElement = document.querySelector(`[data-type="term"][data-index="${index}"]`);
+            termElement.classList.add('ring-2', 'ring-primary-500', 'bg-primary-200');
+            
+            if (selectedCards.length === 2) {
+                setTimeout(checkMatch, 500);
+            }
+        }
+
+        function selectDefinition(index) {
+            if (selectedCards.length >= 2) return;
+            
+            const definition = gameCards.definitions[index];
+            if (definition.matched) return;
+            
+            selectedCards.push({ type: 'definition', index: index, id: definition.id });
+            
+            // Highlight selected definition
+            const defElement = document.querySelector(`[data-type="definition"][data-index="${index}"]`);
+            defElement.classList.add('ring-2', 'ring-secondary-500', 'bg-secondary-200');
+            
+            if (selectedCards.length === 2) {
+                setTimeout(checkMatch, 500);
+            }
+        }
+
+        function checkMatch() {
+            if (selectedCards.length !== 2) return;
+            
+            const [selection1, selection2] = selectedCards;
+            
+            // Check if we have one term and one definition
+            if (selection1.type === selection2.type) {
+                // Same type selected, clear selection
+                clearSelection();
+                return;
+            }
+            
+            // Check if they match (same ID)
+            if (selection1.id === selection2.id) {
+                // Match found!
+                matchedPairs++;
+                score += 10;
+                
+                // Mark as matched
+                if (selection1.type === 'term') {
+                    gameCards.terms[selection1.index].matched = true;
+                    gameCards.definitions[selection2.index].matched = true;
+                } else {
+                    gameCards.terms[selection2.index].matched = true;
+                    gameCards.definitions[selection1.index].matched = true;
+                }
+                
+                // Update visual state
+                const termElement = document.querySelector(`[data-type="term"][data-index="${selection1.type === 'term' ? selection1.index : selection2.index}"]`);
+                const defElement = document.querySelector(`[data-type="definition"][data-index="${selection1.type === 'definition' ? selection1.index : selection2.index}"]`);
+                
+                termElement.classList.add('bg-green-100', 'border-green-500', 'opacity-50', 'pointer-events-none');
+                defElement.classList.add('bg-green-100', 'border-green-500', 'opacity-50', 'pointer-events-none');
+                
+                showNotification('Great match!', 'success');
+                
+                if (matchedPairs === currentSet.flashcards.length) {
+                    setTimeout(showGameComplete, 1000);
+                }
+            } else {
+                // No match - show feedback and clear
+                showNotification('No match, try again!', 'error');
+                setTimeout(clearSelection, 1000);
+            }
+
+            selectedCards = [];
+            updateScore();
+        }
+
+        function clearSelection() {
+            // Remove highlights from all selected items
+            selectedCards.forEach(selection => {
+                const element = document.querySelector(`[data-type="${selection.type}"][data-index="${selection.index}"]`);
+                if (element) {
+                    element.classList.remove('ring-2', 'ring-primary-500', 'bg-primary-200', 'ring-secondary-500', 'bg-secondary-200');
+                }
+            });
+            selectedCards = [];
+        }
+
+        function startTimer() {
+            gameTimer = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                document.getElementById('match-time').textContent = `Time: ${elapsed}s`;
+            }, 1000);
+        }
+
+        function updateScore() {
+            document.getElementById('match-score').textContent = `Score: ${score}`;
+        }
+
+        function showGameComplete() {
+            clearInterval(gameTimer);
+            const totalTime = Math.floor((Date.now() - startTime) / 1000);
+            
+            const content = document.getElementById('match-content');
+            content.innerHTML = `
+                <div class="text-center py-12 animate-fade-in">
+                    <div class="text-6xl mb-6">🎉</div>
+                    <h3 class="text-3xl font-bold text-gray-800 mb-4">Game Complete!</h3>
+                    
+                    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 max-w-md mx-auto mb-8">
+                        <div class="grid grid-cols-2 gap-6">
+                            <div class="text-center">
+                                <div class="text-3xl font-bold text-primary-600">${score}</div>
+                                <div class="text-sm text-gray-600">Final Score</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-3xl font-bold text-gray-800">${totalTime}s</div>
+                                <div class="text-sm text-gray-600">Time</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-4 justify-center">
+                        <button 
+                            onclick="startGame()" 
+                            class="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors duration-200"
+                        >
+                            Play Again
+                        </button>
+                        <a 
+                            href="index.html" 
+                            class="px-6 py-3 bg-gradient-to-r from-primary-500 to-secondary-500 text-white rounded-xl font-medium hover:from-primary-600 hover:to-secondary-600 transition-all duration-200 shadow-lg hover:shadow-xl"
+                        >
+                            Back to Sets
+                        </a>
+                    </div>
+                </div>
+            `;
+        }
+
+        function escapeHtml(text) {
+            if (window.QuizletUtils && window.QuizletUtils.escapeHtml) {
+                return window.QuizletUtils.escapeHtml(text);
+            }
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showNotification(message, type = 'info') {
+            if (window.QuizletUtils && window.QuizletUtils.showNotification) {
+                return window.QuizletUtils.showNotification(message, type);
+            }
+            
+            // Create Tailwind notification
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 z-50 max-w-sm w-full bg-white rounded-xl shadow-lg border p-4 animate-slide-up`;
+            
+            const typeStyles = {
+                success: 'border-green-200 bg-green-50',
+                error: 'border-red-200 bg-red-50',
+                warning: 'border-yellow-200 bg-yellow-50',
+                info: 'border-blue-200 bg-blue-50'
+            };
+            
+            const typeIcons = {
+                success: '✅',
+                error: '❌',
+                warning: '⚠️',
+                info: 'ℹ️'
+            };
+            
+            notification.className += ` ${typeStyles[type] || typeStyles.info}`;
+            
+            notification.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <span class="text-xl">${typeIcons[type] || typeIcons.info}</span>
+                    <span class="text-sm font-medium text-gray-800">${message}</span>
+                    <button onclick="this.closest('.fixed').remove()" class="ml-auto text-gray-400 hover:text-gray-600">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Auto remove after 3 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

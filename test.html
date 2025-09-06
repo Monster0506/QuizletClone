@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Mode - Quizlet Clone</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#e0e7ff',
+                            100: '#c7d2fe',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                        },
+                        secondary: {
+                            50: '#f3e8ff',
+                            500: '#8b5cf6',
+                            600: '#7c3aed',
+                        }
+                    },
+                    fontFamily: {
+                        'sans': ['Inter', 'system-ui', 'sans-serif'],
+                        'mono': ['JetBrains Mono', 'monospace'],
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-out',
+                        'slide-up': 'slideUp 0.3s ease-out',
+                        'bounce-gentle': 'bounceGentle 2s infinite',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        slideUp: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        bounceGentle: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-5px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body class="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 font-sans">
+    <!-- Background Pattern -->
+    <div class="fixed inset-0 bg-[url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23ffffff" fill-opacity="0.05"%3E%3Ccircle cx="30" cy="30" r="2"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-20"></div>
+    
+    <div class="relative z-10 min-h-screen">
+        <!-- Header -->
+        <div class="text-center py-12 px-4">
+            <div class="animate-fade-in">
+                <h1 class="text-5xl md:text-6xl font-extrabold text-white mb-4 tracking-tight">
+                    📝 Test Mode
+                </h1>
+                <p class="text-xl text-white/90 font-medium">
+                    Test your knowledge with quizzes
+                </p>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="max-w-6xl mx-auto px-4 pb-16">
+            <div class="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
+                <!-- Header Section -->
+                <div class="bg-gradient-to-r from-primary-500 to-secondary-500 px-8 py-6">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div>
+                            <h2 class="text-2xl font-bold text-white" id="set-title">Loading...</h2>
+                            <p class="text-white/80 mt-1">Test your knowledge</p>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <div class="text-white/90 text-sm font-medium" id="test-progress">Question 0 of 0</div>
+                            <div class="text-white/90 text-sm font-medium" id="test-score">Score: 0</div>
+                            <a href="index.html" class="inline-flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-xl font-medium transition-all duration-200 backdrop-blur-sm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                                </svg>
+                                <span>Back to Sets</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Test Content -->
+                <div class="p-8">
+                    <div id="test-content">
+                        <!-- Test content will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="utils.js"></script>
+    <script>
+        // Global variables
+        let currentSet = null;
+        let currentTestIndex = 0;
+        let testAnswers = [];
+        let testMode = 'multiple-choice';
+        let testCards = [];
+        let startTime = null;
+        let correctAnswers = 0;
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSet();
+        });
+
+        // Load study set
+        function loadSet() {
+            currentSet = QuizletUtils.getCurrentSet();
+            if (!currentSet) {
+                showNotification('No study set found', 'error');
+                setTimeout(() => window.location.href = 'index.html', 2000);
+                return;
+            }
+
+            if (currentSet.flashcards.length === 0) {
+                showNotification('No flashcards in this set', 'error');
+                setTimeout(() => window.location.href = 'index.html', 2000);
+                return;
+            }
+
+            document.getElementById('set-title').textContent = currentSet.name;
+            showTestModeSelection();
+        }
+
+        function showTestModeSelection() {
+            const content = document.getElementById('test-content');
+            content.innerHTML = `
+                <div class="text-center py-12 animate-fade-in">
+                    <div class="text-6xl mb-6 animate-bounce-gentle">📝</div>
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">Choose Test Mode</h3>
+                    <p class="text-gray-600 mb-8 max-w-md mx-auto">Select how you want to test your knowledge</p>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+                        <button onclick="startTest('multiple-choice')" class="group bg-white rounded-2xl shadow-lg border border-gray-100 p-8 hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                            <div class="text-4xl mb-4 group-hover:scale-110 transition-transform duration-200">🎯</div>
+                            <h4 class="text-xl font-semibold text-gray-800 mb-2">Multiple Choice</h4>
+                            <p class="text-gray-600 text-sm">Choose the correct answer from options</p>
+                        </button>
+                        
+                        <button onclick="startTest('written')" class="group bg-white rounded-2xl shadow-lg border border-gray-100 p-8 hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                            <div class="text-4xl mb-4 group-hover:scale-110 transition-transform duration-200">✍️</div>
+                            <h4 class="text-xl font-semibold text-gray-800 mb-2">Written Test</h4>
+                            <p class="text-gray-600 text-sm">Type your answer and get instant feedback</p>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function startTest(mode) {
+            testMode = mode;
+            testCards = [...currentSet.flashcards];
+            testCards = QuizletUtils.shuffleArray(testCards);
+            currentTestIndex = 0;
+            testAnswers = [];
+            correctAnswers = 0;
+            startTime = Date.now();
+            
+            updateProgress();
+            showQuestion();
+        }
+
+        function showQuestion() {
+            if (currentTestIndex >= testCards.length) {
+                showResults();
+                return;
+            }
+
+            const card = testCards[currentTestIndex];
+            const content = document.getElementById('test-content');
+            
+            let questionHTML = '';
+            
+            if (testMode === 'multiple-choice') {
+                const options = generateMultipleChoiceOptions(card);
+                questionHTML = `
+                    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 animate-fade-in">
+                        <div class="text-center mb-8">
+                            <h3 class="text-2xl font-bold text-gray-800 mb-4">${escapeHtml(card.term)}</h3>
+                            <p class="text-gray-600">Choose the correct definition:</p>
+                        </div>
+                        
+                        <div class="space-y-3 max-w-2xl mx-auto">
+                            ${options.map((option, index) => `
+                                <button 
+                                    onclick="selectAnswer(${index})" 
+                                    class="w-full p-4 text-left border-2 border-gray-200 rounded-xl hover:border-primary-300 hover:bg-primary-50 transition-all duration-200 answer-option"
+                                    data-option="${index}"
+                                >
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-6 h-6 rounded-full border-2 border-gray-300 flex items-center justify-center text-sm font-medium">${index + 1}</div>
+                                        <span class="text-gray-800">${escapeHtml(option)}</span>
+                                    </div>
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            } else if (testMode === 'written') {
+                const showTerm = Math.random() < 0.5;
+                const question = showTerm ? card.term : card.definition;
+                const answerType = showTerm ? 'definition' : 'term';
+                
+                questionHTML = `
+                    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 animate-fade-in">
+                        <div class="text-center mb-8">
+                            <h3 class="text-2xl font-bold text-gray-800 mb-4">${escapeHtml(question)}</h3>
+                            <p class="text-gray-600">Type the ${answerType}:</p>
+                        </div>
+                        
+                        <div class="max-w-2xl mx-auto">
+                            <input 
+                                type="text" 
+                                id="written-answer" 
+                                placeholder="Enter your answer..."
+                                class="w-full px-6 py-4 text-lg border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200"
+                                onkeypress="if(event.key==='Enter') submitAnswer()"
+                            >
+                            <div class="flex justify-center mt-6">
+                                <button 
+                                    onclick="submitAnswer()" 
+                                    class="px-8 py-3 bg-gradient-to-r from-primary-500 to-secondary-500 text-white rounded-xl font-semibold hover:from-primary-600 hover:to-secondary-600 transition-all duration-200 shadow-lg hover:shadow-xl"
+                                >
+                                    Submit Answer
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            content.innerHTML = questionHTML;
+        }
+
+        function generateMultipleChoiceOptions(correctCard) {
+            const options = [correctCard.definition];
+            const otherCards = currentSet.flashcards.filter(c => c.id !== correctCard.id);
+            
+            while (options.length < 4 && otherCards.length > 0) {
+                const randomCard = otherCards[Math.floor(Math.random() * otherCards.length)];
+                if (!options.includes(randomCard.definition)) {
+                    options.push(randomCard.definition);
+                }
+                otherCards.splice(otherCards.indexOf(randomCard), 1);
+            }
+            
+            return QuizletUtils.shuffleArray(options);
+        }
+
+
+        function selectAnswer(optionIndex) {
+            const card = testCards[currentTestIndex];
+            const isCorrect = optionIndex === 0; // First option is always correct in our generation
+            
+            // Visual feedback
+            const buttons = document.querySelectorAll('.answer-option');
+            buttons.forEach((btn, index) => {
+                btn.classList.remove('border-primary-300', 'bg-primary-50');
+                if (index === optionIndex) {
+                    if (isCorrect) {
+                        btn.classList.add('border-green-500', 'bg-green-50');
+                    } else {
+                        btn.classList.add('border-red-500', 'bg-red-50');
+                    }
+                }
+            });
+            
+            testAnswers.push({
+                cardId: card.id,
+                answer: optionIndex,
+                correct: isCorrect,
+                time: Date.now() - startTime
+            });
+            
+            if (isCorrect) correctAnswers++;
+            
+            setTimeout(() => {
+                currentTestIndex++;
+                updateProgress();
+                showQuestion();
+            }, 1500);
+        }
+
+
+        function submitAnswer() {
+            const input = document.getElementById('written-answer');
+            const userAnswer = input.value.trim().toLowerCase();
+            const card = testCards[currentTestIndex];
+            
+            // Determine what the correct answer should be based on the question
+            const questionText = document.querySelector('h3').textContent;
+            const isAskingForDefinition = questionText === card.term;
+            const correctAnswer = isAskingForDefinition ? card.definition.toLowerCase() : card.term.toLowerCase();
+            
+            // More strict similarity check
+            const similarity = calculateSimilarity(userAnswer, correctAnswer);
+            
+            // Additional validation: check for minimum length and word count
+            const minLength = Math.max(3, correctAnswer.length * 0.3); // At least 30% of correct answer length
+            const hasMinimumLength = userAnswer.length >= minLength;
+            
+            // Check if answer contains key words (for longer definitions)
+            const correctWords = correctAnswer.split(' ').filter(word => word.length > 3);
+            const userWords = userAnswer.split(' ').filter(word => word.length > 3);
+            const matchingWords = correctWords.filter(word => 
+                userWords.some(userWord => userWord.includes(word) || word.includes(userWord))
+            );
+            const wordMatchRatio = correctWords.length > 0 ? matchingWords.length / correctWords.length : 1;
+            
+            const isCorrect = similarity > 0.85 && hasMinimumLength && wordMatchRatio > 0.5;
+            
+            testAnswers.push({
+                cardId: card.id,
+                answer: userAnswer,
+                correct: isCorrect,
+                time: Date.now() - startTime
+            });
+            
+            if (isCorrect) correctAnswers++;
+            
+            // Show feedback
+            const feedback = document.createElement('div');
+            feedback.className = `mt-4 p-4 rounded-xl ${isCorrect ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`;
+            feedback.innerHTML = `
+                <div class="flex items-center gap-2">
+                    <span class="text-xl">${isCorrect ? '✅' : '❌'}</span>
+                    <span class="font-medium">${isCorrect ? 'Correct!' : 'Incorrect'}</span>
+                </div>
+                ${!isCorrect ? `<p class="text-sm text-gray-600 mt-1">Correct answer: ${escapeHtml(isAskingForDefinition ? card.definition : card.term)}</p>` : ''}
+            `;
+            
+            input.parentNode.appendChild(feedback);
+            input.disabled = true;
+            
+            setTimeout(() => {
+                currentTestIndex++;
+                updateProgress();
+                showQuestion();
+            }, 2000);
+        }
+
+        function calculateSimilarity(str1, str2) {
+            // Normalize strings - remove extra spaces and convert to lowercase
+            const normalize = (str) => str.toLowerCase().trim().replace(/\s+/g, ' ');
+            const norm1 = normalize(str1);
+            const norm2 = normalize(str2);
+            
+            // Exact match
+            if (norm1 === norm2) return 1.0;
+            
+            // Check if one contains the other (for partial matches)
+            if (norm1.includes(norm2) || norm2.includes(norm1)) {
+                const longer = norm1.length > norm2.length ? norm1 : norm2;
+                const shorter = norm1.length > norm2.length ? norm2 : norm1;
+                return shorter.length / longer.length;
+            }
+            
+            // Use Levenshtein distance for character-level similarity
+            const longer = norm1.length > norm2.length ? norm1 : norm2;
+            const shorter = norm1.length > norm2.length ? norm2 : norm1;
+            
+            if (longer.length === 0) return 0.0;
+            
+            const editDistance = levenshteinDistance(longer, shorter);
+            const similarity = (longer.length - editDistance) / longer.length;
+            
+            // Apply additional penalty for very different lengths
+            const lengthPenalty = Math.abs(norm1.length - norm2.length) / Math.max(norm1.length, norm2.length);
+            return Math.max(0, similarity - lengthPenalty * 0.2);
+        }
+
+        function levenshteinDistance(str1, str2) {
+            const matrix = [];
+            
+            for (let i = 0; i <= str2.length; i++) {
+                matrix[i] = [i];
+            }
+            
+            for (let j = 0; j <= str1.length; j++) {
+                matrix[0][j] = j;
+            }
+            
+            for (let i = 1; i <= str2.length; i++) {
+                for (let j = 1; j <= str1.length; j++) {
+                    if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+                        matrix[i][j] = matrix[i - 1][j - 1];
+                    } else {
+                        matrix[i][j] = Math.min(
+                            matrix[i - 1][j - 1] + 1,
+                            matrix[i][j - 1] + 1,
+                            matrix[i - 1][j] + 1
+                        );
+                    }
+                }
+            }
+            
+            return matrix[str2.length][str1.length];
+        }
+
+        function updateProgress() {
+            document.getElementById('test-progress').textContent = `Question ${currentTestIndex + 1} of ${testCards.length}`;
+            document.getElementById('test-score').textContent = `Score: ${correctAnswers}`;
+        }
+
+        function showResults() {
+            const totalTime = Date.now() - startTime;
+            const percentage = Math.round((correctAnswers / testCards.length) * 100);
+            
+            const content = document.getElementById('test-content');
+            content.innerHTML = `
+                <div class="text-center py-12 animate-fade-in">
+                    <div class="text-6xl mb-6">${percentage >= 80 ? '🎉' : percentage >= 60 ? '👍' : '📚'}</div>
+                    <h3 class="text-3xl font-bold text-gray-800 mb-4">Test Complete!</h3>
+                    
+                    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 max-w-md mx-auto mb-8">
+                        <div class="grid grid-cols-2 gap-6">
+                            <div class="text-center">
+                                <div class="text-3xl font-bold text-primary-600">${correctAnswers}</div>
+                                <div class="text-sm text-gray-600">Correct</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-3xl font-bold text-gray-800">${percentage}%</div>
+                                <div class="text-sm text-gray-600">Accuracy</div>
+                            </div>
+                        </div>
+                        <div class="mt-6 pt-6 border-t border-gray-200">
+                            <div class="text-sm text-gray-600">Time: ${Math.round(totalTime / 1000)}s</div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-4 justify-center">
+                        <button 
+                            onclick="showTestModeSelection()" 
+                            class="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors duration-200"
+                        >
+                            Try Again
+                        </button>
+                        <a 
+                            href="index.html" 
+                            class="px-6 py-3 bg-gradient-to-r from-primary-500 to-secondary-500 text-white rounded-xl font-medium hover:from-primary-600 hover:to-secondary-600 transition-all duration-200 shadow-lg hover:shadow-xl"
+                        >
+                            Back to Sets
+                        </a>
+                    </div>
+                </div>
+            `;
+        }
+
+        function escapeHtml(text) {
+            if (window.QuizletUtils && window.QuizletUtils.escapeHtml) {
+                return window.QuizletUtils.escapeHtml(text);
+            }
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showNotification(message, type = 'info') {
+            if (window.QuizletUtils && window.QuizletUtils.showNotification) {
+                return window.QuizletUtils.showNotification(message, type);
+            }
+            
+            // Create Tailwind notification
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 z-50 max-w-sm w-full bg-white rounded-xl shadow-lg border p-4 animate-slide-up`;
+            
+            const typeStyles = {
+                success: 'border-green-200 bg-green-50',
+                error: 'border-red-200 bg-red-50',
+                warning: 'border-yellow-200 bg-yellow-50',
+                info: 'border-blue-200 bg-blue-50'
+            };
+            
+            const typeIcons = {
+                success: '✅',
+                error: '❌',
+                warning: '⚠️',
+                info: 'ℹ️'
+            };
+            
+            notification.className += ` ${typeStyles[type] || typeStyles.info}`;
+            
+            notification.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <span class="text-xl">${typeIcons[type] || typeIcons.info}</span>
+                    <span class="text-sm font-medium text-gray-800">${message}</span>
+                    <button onclick="this.closest('.fixed').remove()" class="ml-auto text-gray-400 hover:text-gray-600">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
