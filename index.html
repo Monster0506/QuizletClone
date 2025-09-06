@@ -441,9 +441,32 @@
             showShareModal(studySet, shareUrl, shareData);
         }
 
+        function uint8ArrayToBase64(bytes) {
+            let binary = '';
+            const len = bytes.byteLength;
+            for (let i = 0; i < len; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return window.btoa(binary);
+        }
+
+        function base64ToUint8Array(base64) {
+            const binary_string = window.atob(base64);
+            const len = binary_string.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binary_string.charCodeAt(i);
+            }
+            return bytes;
+        }
+
         function generateShareUrl(data) {
-            const compressed = pako.deflate(JSON.stringify(data), { to: 'string' });
-            const encoded = btoa(compressed);
+            const jsonString = JSON.stringify(data);
+            const compressed = pako.deflate(jsonString);
+            const encoded = uint8ArrayToBase64(compressed)
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=+$/, '');
             return `${window.location.origin}${window.location.pathname}?import=${encoded}`;
         }
 
@@ -659,23 +682,27 @@
             showNotification('Study set exported!', 'success');
         }
 
-        // Import functionality
         function checkForImport() {
             const urlParams = new URLSearchParams(window.location.search);
             const importData = urlParams.get('import');
-            
-            console.log('Checking for import data:', importData);
-            
+
             if (importData) {
                 try {
-                    const decoded = atob(importData);
-                    const decompressed = pako.inflate(decoded, { to: 'string' });
+                    let base64 = importData.replace(/-/g, '+').replace(/_/g, '/');
+                    while (base64.length % 4) {
+                        base64 += '=';
+                    }
+                    const uint8Array = base64ToUint8Array(base64);
+                    const decompressed = pako.inflate(uint8Array, { to: 'string' });
                     const data = JSON.parse(decompressed);
-                    console.log('Parsed import data:', data);
                     showImportModal(data);
                 } catch (e) {
                     console.error('Error parsing import data:', e);
-                    showNotification('Invalid import data', 'error');
+                    if (e && e.message && e.message.includes('incorrect header check')) {
+                        showNotification('Import failed: Invalid data format.', 'error');
+                    } else {
+                        showNotification('Invalid import data.', 'error');
+                    }
                 }
             }
         }
